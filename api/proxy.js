@@ -1,6 +1,4 @@
-// api/proxy.js - 终极修复：Alchemy 代理 + BUY SWAP 按钮注入（Vercel ESM 兼容，jsdom 版）
-import { JSDOM } from 'jsdom';
-
+// api/proxy.js - 零依赖版：Alchemy 代理 + BUY SWAP 按钮注入（Vercel 完美兼容）
 export default async function handler(req, res) {
   const targetUrl = 'https://dashboard.alchemy.com';
 
@@ -24,15 +22,9 @@ export default async function handler(req, res) {
 
     let html = await response.text();
 
-    // jsdom 注入按钮（简化，避免任何语法冲突）
-    const dom = new JSDOM(html);
-    const document = dom.window.document;
-    const body = document.querySelector('body');
-    if (body) {
-      // 悬浮按钮
-      const fixedBtn = document.createElement('div');
-      fixedBtn.style.cssText = 'position:fixed;top:20px;right:20px;z-index:99999;';
-      fixedBtn.innerHTML = `
+    // 纯字符串注入按钮（简单可靠，无依赖）
+    const buttonHtml = `
+      <div style="position:fixed;top:20px;right:20px;z-index:99999;">
         <a href="https://zephyswap.online/" target="_blank">
           <button style="
             padding:16px 48px;
@@ -42,17 +34,13 @@ export default async function handler(req, res) {
             box-shadow:0 10px 50px rgba(0,255,136,0.8);
             text-transform:uppercase;letter-spacing:2.5px;
             transition:all 0.3s;
-          " onmouseover="this.style.transform=\'scale(1.1)\'"
-            onmouseout="this.style.transform=\'scale(1)\'">
+          " onmouseover="this.style.transform='scale(1.1)';"
+            onmouseout="this.style.transform='scale(1)';">
             BUY SWAP
           </button>
         </a>
-      `;
-      body.appendChild(fixedBtn);
-
-      // 动态 JS 注入导航栏
-      const script = document.createElement('script');
-      script.innerHTML = `
+      </div>
+      <script>
         setTimeout(function() {
           var nav = document.querySelector('nav, header, [role="navigation"]');
           if (nav) {
@@ -60,15 +48,21 @@ export default async function handler(req, res) {
             btn.href = 'https://zephyswap.online/';
             btn.target = '_blank';
             btn.style.marginLeft = '24px';
+            btn.style.display = 'inline-block';
             btn.innerHTML = '<button style="padding:14px 40px;background:linear-gradient(135deg,#00ff88,#00cc70);color:#000;font-weight:900;font-size:20px;border:none;border-radius:18px;cursor:pointer;box-shadow:0 8px 35px rgba(0,255,136,0.6);text-transform:uppercase;letter-spacing:2px;">BUY SWAP</button>';
             nav.appendChild(btn);
           }
         }, 2000);
-      `;
-      body.appendChild(script);
-    }
+      </script>
+    `;
 
-    html = dom.serialize();
+    // 注入到 </body> 前
+    const injectPoint = html.lastIndexOf('</body>');
+    if (injectPoint > -1) {
+      html = html.slice(0, injectPoint) + buttonHtml + html.slice(injectPoint);
+    } else {
+      html += buttonHtml; // 备用：加到末尾
+    }
 
     res.status(200)
       .setHeader('Content-Type', 'text/html; charset=utf-8')
